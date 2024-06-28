@@ -20,10 +20,13 @@ void enableRawMode(){
 	//auto exit rawmode when program ends
 	struct termios raw = orig_termios;
 
-	raw.c_iflag &= ~(ICRNL | IXON);
-	//input flag, disables ctrl s and q,
+	raw.c_iflag &= ~(BRKINT |ICRNL | INPCK | ISTRIP |IXON);
+	//input flag, disables ctrl s and q, also disables ctrl c v..., really just ICRNL and IXON doing the most here
+	//BRKINT, INPCK, ISTRIP, CS8 are all from termoios, setting these all for rawmode convention
 	raw.c_oflag &= ~(OPOST);
 	//turns off all output processing, ex carriage return and newline
+	raw.c_cflag |= (CS8);
+	//bitmask for setting eight  bits per byte, really dependent on type of system, but set just in case
 	raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
 	//bitwise operator ^
 	//ICANON disables the canon mode
@@ -40,11 +43,11 @@ int main() {
 	char c;
 	while (read(STDIN_FILENO, &c, 1) == 1 && c != 'q'){
 		if (iscntrl(c)) {
-			printf("%d\n", c);
+			printf("%d\r\n", c);
 		}
 
 		else {
-			printf("%d ('%c')\n", c, c);
+			printf("%d ('%c')\r\n", c, c);
 		}
 	}
 
