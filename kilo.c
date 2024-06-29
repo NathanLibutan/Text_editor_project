@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <termios.h>
@@ -6,15 +7,21 @@
 
 struct termios orig_termios;
 
+void die(const char *s){
+	perror(s);
+	exit(1);
+}
+
 void disableRawMode() {
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
 	//uses original instance of the termios to set attr
+	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1) die("tcsetattr");
 	
 }
 
 void enableRawMode(){
-
-	tcgetattr(STDIN_FILENO, &orig_termios);
+	
+	if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) die("tcsetattr");
 	//gets attr at current state of orig_termios
 	atexit(disableRawMode);
 	//auto exit rawmode when program ends
@@ -30,8 +37,13 @@ void enableRawMode(){
 	raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
 	//bitwise operator ^
 	//ICANON disables the canon mode
+	//
+	//
+	raw.c_cc[VMIN] = 0;
+	raw.c_cc[VTIME] = 1;
 
-	tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+
+	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die ("tcsetattr");
 	//applies terminal changes to the terminal
 }
 
@@ -40,8 +52,10 @@ int main() {
 
 	enableRawMode();
 
-	char c;
-	while (read(STDIN_FILENO, &c, 1) == 1 && c != 'q'){
+	//the read function reads in one byte of input and keeps doing that, returns the value of bytes it read
+	while (1){
+		char c = '\0';
+		if (read(STDIN_FILENO, &c, 1) == -1 && errno != EAGAIN) die("read");
 		if (iscntrl(c)) {
 			printf("%d\r\n", c);
 		}
@@ -49,6 +63,8 @@ int main() {
 		else {
 			printf("%d ('%c')\r\n", c, c);
 		}
+
+		if (c == 'q') break;
 	}
 
 	return 0;
